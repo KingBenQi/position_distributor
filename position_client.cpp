@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <cstring>
 #include <signal.h>
 #include <fcntl.h>
@@ -139,7 +140,12 @@ private:
         }
         
         fcntl(sockfd, F_SETFL, O_NONBLOCK);
-        
+        // Disable Nagle's algorithm for lower latency
+        int nodelay_flag = 1;
+        if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &nodelay_flag, sizeof(nodelay_flag)) < 0) {
+            perror("setsockopt TCP_NODELAY failed");
+        }
+                
         sockaddr_in server_addr;
         server_addr.sin_family = AF_INET;
         server_addr.sin_port = htons(SERVER_PORT);

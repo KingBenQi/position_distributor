@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <atomic>
@@ -95,7 +96,12 @@ public:
         
         int opt = 1;
         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-            perror("setsockopt failed");
+            perror("setsockopt SO_REUSEADDR failed");
+            exit(EXIT_FAILURE);
+        }
+        
+        if (setsockopt(server_fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
+            perror("setsockopt TCP_NODELAY failed");
             exit(EXIT_FAILURE);
         }
         
@@ -167,6 +173,12 @@ private:
         }
         
         fcntl(client_fd, F_SETFL, O_NONBLOCK);
+
+        // Disable Nagle's algorithm for client socket
+        int nodelay_flag = 1;
+        if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay_flag, sizeof(nodelay_flag)) < 0) {
+            perror("setsockopt TCP_NODELAY for client failed");
+        }        
         
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);

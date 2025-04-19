@@ -62,3 +62,8 @@ The implementation uses a client-server architecture in TCP protocol:
 - **Ack**: Clients track the last received sequence number and send acks to enable recovery of missed messages.
 - **Non-blocking I/O**: All socket operations use non-blocking mode
 - **MessageQueue**: Thread-safe queue for ordered message processing
+
+
+### Futher Improvements for Low latency
+
+- **TCP_NODELAY disables Nagle's algorithm**: Each message will be sent immediately without waiting to be combined with other messages.
