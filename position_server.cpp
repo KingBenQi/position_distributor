@@ -93,6 +93,18 @@ public:
             perror("socket creation failed");
             exit(EXIT_FAILURE);
         }
+    
+        // Increase socket buffer sizes for better throughput and reduced latency spikes
+        int rcvbuf_size = 1024 * 1024; 
+        int sndbuf_size = 1024 * 1024; 
+
+        if (setsockopt(server_fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+            perror("setsockopt SO_RCVBUF failed");
+        }
+
+        if (setsockopt(server_fd, SOL_SOCKET, SO_SNDBUF, &sndbuf_size, sizeof(sndbuf_size)) < 0) {
+            perror("setsockopt SO_SNDBUF failed");
+        }
         
         int opt = 1;
         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
@@ -173,7 +185,16 @@ private:
         }
         
         fcntl(client_fd, F_SETFL, O_NONBLOCK);
+        int client_rcvbuf_size = 1024 * 1024;
+        int client_sndbuf_size = 1024 * 1024; 
 
+        if (setsockopt(client_fd, SOL_SOCKET, SO_RCVBUF, &client_rcvbuf_size, sizeof(client_rcvbuf_size)) < 0) {
+            perror("setsockopt SO_RCVBUF for client failed");
+        }
+
+        if (setsockopt(client_fd, SOL_SOCKET, SO_SNDBUF, &client_sndbuf_size, sizeof(client_sndbuf_size)) < 0) {
+            perror("setsockopt SO_SNDBUF for client failed");
+        }
         // Disable Nagle's algorithm for client socket
         int nodelay_flag = 1;
         if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay_flag, sizeof(nodelay_flag)) < 0) {

@@ -67,3 +67,4 @@ The implementation uses a client-server architecture in TCP protocol:
 ### Futher Improvements for Low latency
 
 - **TCP_NODELAY disables Nagle's algorithm**: Each message will be sent immediately without waiting to be combined with other messages.
+- **Socket Buffer Tuning**: sets both send and receive buffers to 1MB to handle bursts of data

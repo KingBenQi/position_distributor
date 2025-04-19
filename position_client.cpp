@@ -26,7 +26,6 @@ private:
     std::mutex cache_mutex;
     
     uint64_t last_received_seq;
-    uint64_t local_sequence_number;
     std::mutex seq_mutex;
     
     std::queue<std::string> outgoing_queue;
@@ -42,7 +41,7 @@ private:
 
 public:
     PositionClient(const std::string& id) 
-        : client_id(id), last_received_seq(0), local_sequence_number(0),
+        : client_id(id), last_received_seq(0),
           position_dist(-1000.0, 1000.0) {
         
         std::random_device rd;
@@ -140,6 +139,20 @@ private:
         }
         
         fcntl(sockfd, F_SETFL, O_NONBLOCK);
+
+        // Increase socket buffer sizes for better throughput and reduced latency spikes
+        int rcvbuf_size = 1024 * 1024; 
+        int sndbuf_size = 1024 * 1024; 
+
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+            perror("setsockopt SO_RCVBUF failed");
+        }
+
+        if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf_size, sizeof(sndbuf_size)) < 0) {
+            perror("setsockopt SO_SNDBUF failed");
+        }
+
+
         // Disable Nagle's algorithm for lower latency
         int nodelay_flag = 1;
         if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &nodelay_flag, sizeof(nodelay_flag)) < 0) {
