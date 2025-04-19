@@ -19,21 +19,30 @@ struct Message {
     SymbolPos position;          
     
     std::string serialize() const {
+        std::string result;
+        result.reserve(128);
         std::ostringstream oss;
         oss << sequence_number << "|"
             << source_id << "|"
             << timestamp << "|"
             << position.symbol << "|"
             << std::fixed << std::setprecision(8) << position.net_position;
-        return oss.str();
+        result = oss.str();
+        return result;
     }
     
     std::string serializeForLog() const {
-        return serialize() + "\n";
+        std::string result;
+        result.reserve(130); 
+        result = serialize() + "\n";
+        return result;
     }
     
     std::string serializeForNetwork() const {
-        return serialize() + "\n";
+        std::string result;
+        result.reserve(130); 
+        result = serialize() + "\n";
+        return result;
     }
     
     static Message deserialize(const std::string& s) {
@@ -96,13 +105,21 @@ struct Acknowledgment {
     uint64_t last_sequence_number;
     
     std::string serialize() const {
+        std::string result;
+        result.reserve(64); 
+        
         std::ostringstream oss;
         oss << "ACK|" << client_id << "|" << last_sequence_number;
-        return oss.str();
+        result = oss.str();
+        return result;
     }
     
     std::string serializeForNetwork() const {
-        return serialize() + "\n";
+        std::string result;
+        result.reserve(66); 
+        result = serialize() + "\n";
+        return result;
+    
     }
     
     static Acknowledgment deserialize(const std::string& s) {

@@ -68,3 +68,4 @@ The implementation uses a client-server architecture in TCP protocol:
 
 - **TCP_NODELAY disables Nagle's algorithm**: Each message will be sent immediately without waiting to be combined with other messages.
 - **Socket Buffer Tuning**: sets both send and receive buffers to 1MB to handle bursts of data
+- **Memory Pre-allocation**: Pre-allocate string buffers to avoid memory allocations during message processing

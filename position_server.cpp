@@ -260,6 +260,7 @@ private:
         sendHistoricalMessages(client_fd, client_id);
         
         std::string incoming_buffer;
+        incoming_buffer.reserve(BUFFER_SIZE * 2);
         while (running) {
             memset(buffer, 0, BUFFER_SIZE);
             ssize_t bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
@@ -355,7 +356,9 @@ private:
     }
     
     void broadcastMessage(const Message& msg) {
-        std::string serialized = msg.serializeForNetwork();
+        std::string serialized;
+        serialized.reserve(256); 
+        serialized = msg.serializeForNetwork();
         
         std::lock_guard<std::mutex> lock(clients_mutex);
         for (const auto& client : clients) {
@@ -404,10 +407,11 @@ private:
                 }
             }
         }
-        
+        std::string serialized;
+        serialized.reserve(256);
         for (const auto& [seq, msg] : message_history) {
             if (seq > start_seq && msg.source_id != client_id) {
-                std::string serialized = msg.serializeForNetwork();
+                serialized = msg.serializeForNetwork();
                 send(client_fd, serialized.c_str(), serialized.size(), 0);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
@@ -418,7 +422,10 @@ private:
         std::lock_guard<std::mutex> lock(log_mutex);
         std::ofstream log(log_file, std::ios::app);
         if (log.is_open()) {
-            log << msg.serializeForLog();
+            std::string logMsg;
+            logMsg.reserve(256);
+            logMsg = msg.serializeForLog();
+            log << logMsg;
         }
     }
     

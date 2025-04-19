@@ -111,9 +111,12 @@ public:
             position_cache[symbol] = position;
         }
         
+        std::string msg;
+        msg.reserve(128);
+        
         std::ostringstream oss;
         oss << symbol << "|" << std::fixed << std::setprecision(8) << position << "\n";
-        std::string msg = oss.str();
+        msg = oss.str();
         
         {
             std::lock_guard<std::mutex> lock(outgoing_mutex);
@@ -124,6 +127,7 @@ public:
         
         std::cout << "Updated position: " << symbol << " => " << position << std::endl;
     }
+
     
     std::map<std::string, double> getPositions() {
         std::lock_guard<std::mutex> lock(cache_mutex);
@@ -214,13 +218,16 @@ private:
         std::cout << "Connected to server\n";
         connected = true;
         
-        std::string hello_msg = "HELLO|" + client_id + "\n";
+        std::string hello_msg;
+        hello_msg.reserve(64);
+        hello_msg = "HELLO|" + client_id + "\n";
         send(sockfd, hello_msg.c_str(), hello_msg.size(), 0);
     }
     
     void receiveLoop() {
         char buffer[BUFFER_SIZE];
         std::string incoming_buffer;
+        incoming_buffer.reserve(BUFFER_SIZE * 2);
         
         while (running && connected) {
             memset(buffer, 0, BUFFER_SIZE);
@@ -322,7 +329,10 @@ private:
                 ack.last_sequence_number = last_received_seq;
             }
             
-            std::string serialized = ack.serializeForNetwork();
+            std::string serialized;
+            serialized.reserve(64);
+            serialized = ack.serializeForNetwork();
+            
             send(sockfd, serialized.c_str(), serialized.size(), 0);
         }
     }
