@@ -236,6 +236,7 @@ private:
                         break;
                     }
                 }
+                
             } else if (bytes == 0 || (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
                 closeClient(client_fd);
                 return;
@@ -244,23 +245,47 @@ private:
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         
+        bool is_reconnection = false;
         {
             std::lock_guard<std::mutex> lock(clients_mutex);
-            for (auto& client : clients) {
-                if (client.socket_fd == client_fd) {
-                    client.client_id = client_id;
-                    client.last_activity = std::chrono::steady_clock::now();
-                    break;
+            
+            auto it = clients.begin();
+            while (it != clients.end()) {
+                if (it->socket_fd == client_fd && it->client_id.substr(0, 5) == "temp_") {
+                    it = clients.erase(it);
+                } else {
+                    ++it;
                 }
+            }
+            
+            auto existing_client = std::find_if(clients.begin(), clients.end(),
+                                              [&client_id](const ClientInfo& client) {
+                                                  return client.client_id == client_id;
+                                              });
+            
+            if (existing_client != clients.end()) {
+                is_reconnection = true;
+                
+                if (existing_client->socket_fd != -1 && existing_client->socket_fd != client_fd) {
+                    close(existing_client->socket_fd);
+                }
+                
+                existing_client->socket_fd = client_fd;
+                existing_client->last_activity = std::chrono::steady_clock::now();
+            } else {
+                clients.push_back({client_fd, client_id, 0, std::chrono::steady_clock::now()});
             }
         }
         
-        std::cout << "Client " << client_id << " registered\n";
+        if (is_reconnection) {
+            std::cout << "Client " << client_id << " reconnected\n";
+        } else {
+            std::cout << "Client " << client_id << " registered\n";
+        }
         
         sendHistoricalMessages(client_fd, client_id);
         
         std::string incoming_buffer;
-        incoming_buffer.reserve(BUFFER_SIZE * 2);
         while (running) {
             memset(buffer, 0, BUFFER_SIZE);
             ssize_t bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
@@ -336,6 +361,8 @@ private:
                 message_history[msg.sequence_number] = msg;
                 
                 logMessage(msg);
+                std::cout << "Logged message: " << msg.sequence_number << "|" << client_id 
+                << "|" << msg.timestamp << "|" << pos.symbol << "|" << pos.net_position << std::endl;
             }
             
             message_queue.push(msg);
@@ -362,7 +389,7 @@ private:
         
         std::lock_guard<std::mutex> lock(clients_mutex);
         for (const auto& client : clients) {
-            if (client.client_id == msg.source_id) {
+            if (client.client_id == msg.source_id || client.socket_fd == -1) {
                 continue;
             }
             
@@ -372,16 +399,18 @@ private:
     
     void closeClient(int client_fd) {
         std::lock_guard<std::mutex> lock(clients_mutex);
+        
         auto it = std::find_if(clients.begin(), clients.end(),
                               [client_fd](const ClientInfo& client) {
                                   return client.socket_fd == client_fd;
                               });
         
         if (it != clients.end()) {
-            clients.erase(it);
+            close(client_fd);
+            it->socket_fd = -1;
+        } else {
+            close(client_fd);
         }
-        
-        close(client_fd);
     }
     
     void updateClientAck(const std::string& client_id, uint64_t seq_num) {

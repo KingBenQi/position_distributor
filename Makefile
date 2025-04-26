@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -pthread
+CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -pthread
 DEBUG_FLAGS = -g -DDEBUG
 
 all: position_server position_client

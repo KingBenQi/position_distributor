@@ -39,6 +39,8 @@ private:
     std::mt19937 rng;
     std::uniform_real_distribution<double> position_dist;
 
+    std::mutex console_mutex;
+
 public:
     PositionClient(const std::string& id) 
         : client_id(id), last_received_seq(0),
@@ -118,14 +120,21 @@ public:
         oss << symbol << "|" << std::fixed << std::setprecision(8) << position << "\n";
         msg = oss.str();
         
-        {
-            std::lock_guard<std::mutex> lock(outgoing_mutex);
-            outgoing_queue.push(msg);
+        if (connected) {
+            {
+                std::lock_guard<std::mutex> lock(outgoing_mutex);
+                outgoing_queue.push(msg);
+            }
+            
+            outgoing_cv.notify_one();
+            
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                std::cout << "Updated position: " << symbol << " => " << position << std::endl;
+            }        
+        } else {
+            std::cout << "Not connected, position update queued: " << symbol << " => " << position << std::endl;
         }
-        
-        outgoing_cv.notify_one();
-        
-        std::cout << "Updated position: " << symbol << " => " << position << std::endl;
     }
 
     
@@ -216,13 +225,33 @@ private:
         }
         
         std::cout << "Connected to server\n";
-        connected = true;
         
-        std::string hello_msg;
-        hello_msg.reserve(64);
-        hello_msg = "HELLO|" + client_id + "\n";
-        send(sockfd, hello_msg.c_str(), hello_msg.size(), 0);
+        std::string hello_msg = "HELLO|" + client_id + "\n";
+        
+        ssize_t bytes_sent = 0;
+        ssize_t total_sent = 0;
+        size_t message_length = hello_msg.size();
+        
+        while (total_sent < message_length) {
+            bytes_sent = send(sockfd, hello_msg.c_str() + total_sent, message_length - total_sent, 0);
+            
+            if (bytes_sent <= 0) {
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    perror("send HELLO failed");
+                    close(sockfd);
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            } else {
+                total_sent += bytes_sent;
+            }
+        }
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        connected = true;
     }
+    
     
     void receiveLoop() {
         char buffer[BUFFER_SIZE];
@@ -340,6 +369,10 @@ private:
     void processReceivedMessage(const std::string& data) {
         try {
             Message msg = Message::deserialize(data);
+
+            if (msg.source_id == client_id) {
+                return;
+            }
             
             {
                 std::lock_guard<std::mutex> lock(seq_mutex);
@@ -355,9 +388,12 @@ private:
                 position_cache[msg.position.symbol] = msg.position.net_position;
             }
             
-            std::cout << "Received update from " << msg.source_id 
-                      << ": " << msg.position.symbol 
-                      << " => " << msg.position.net_position << std::endl;
+            {
+                std::lock_guard<std::mutex> lock(console_mutex);
+                std::cout << "Received update from " << msg.source_id 
+                          << ": " << msg.position.symbol 
+                          << " => " << msg.position.net_position << std::endl;
+            }
             
         } catch (const std::exception& e) {
             std::cerr << "Error processing received message: " << e.what() << std::endl;
