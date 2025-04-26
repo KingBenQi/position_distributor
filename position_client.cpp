@@ -229,7 +229,7 @@ private:
         std::string hello_msg = "HELLO|" + client_id + "\n";
         
         ssize_t bytes_sent = 0;
-        ssize_t total_sent = 0;
+        size_t total_sent = 0;
         size_t message_length = hello_msg.size();
         
         while (total_sent < message_length) {
@@ -243,7 +243,7 @@ private:
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             } else {
-                total_sent += bytes_sent;
+                total_sent += static_cast<size_t>(bytes_sent);
             }
         }
         
