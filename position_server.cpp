@@ -436,15 +436,22 @@ private:
                 }
             }
         }
+        std::cout << "Sending historical messages to " << client_id << " (from seq " << start_seq << ")" << std::endl;
+
+        int message_count = 0;
         std::string serialized;
         serialized.reserve(256);
         for (const auto& [seq, msg] : message_history) {
-            if (seq > start_seq && msg.source_id != client_id) {
+            if (seq > start_seq &&  msg.source_id != client_id){
                 serialized = msg.serializeForNetwork();
                 send(client_fd, serialized.c_str(), serialized.size(), 0);
+                message_count++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
+        
+        std::cout << "Sent " << message_count << " historical messages to " << client_id << std::endl;
+    
     }
     
     void logMessage(const Message& msg) {
